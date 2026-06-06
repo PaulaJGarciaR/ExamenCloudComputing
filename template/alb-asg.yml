@@ -7,10 +7,6 @@ Parameters:
     Default: t3.micro
     Description: "Tipo de instancia para el Launch Template"
 
-  KeyName:
-    Type: AWS::EC2::KeyPair::KeyName
-    Description: "Nombre del Key Pair para acceso SSH"
-
 # Consulta dinamica de la VPC por defecto y sus subredes
 Mappings: {}
 
@@ -98,7 +94,6 @@ Resources:
       LaunchTemplateData:
         InstanceType: !Ref InstanceType
         ImageId: "{{resolve:ssm:/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2}}"
-        KeyName: !Ref KeyName
         SecurityGroupIds:
           - !ImportValue "SG-EC2-Paula-Darwin-Id"
         UserData:
