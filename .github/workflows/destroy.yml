@@ -45,3 +45,32 @@ jobs:
           aws cloudformation wait stack-delete-complete \
             --stack-name SecurityGroups-Paula-Darwin
           echo "Stack 1 eliminado correctamente"
+
+      # ─────────────────────────────────────────────
+      # STACK 4 - AUTOMATIZACIÓN (primero)
+      # ─────────────────────────────────────────────
+      - name: Eliminar Stack 4 - Automatización
+        run: |
+          aws cloudformation delete-stack \
+            --stack-name Automation-Paula-Darwin
+
+      - name: Esperar eliminación Stack 4
+        run: |
+          aws cloudformation wait stack-delete-complete \
+            --stack-name Automation-Paula-Darwin
+          echo "Stack 4 eliminado correctamente"
+
+      # ─────────────────────────────────────────────
+      # STACK 3 - ALB, ASG Y WARM POOL
+      # ─────────────────────────────────────────────
+      - name: Eliminar Stack 3 - ALB, ASG y Warm Pool
+        run: |
+          aws cloudformation delete-stack \
+            --stack-name ALB-ASG-Paula-Darwin
+
+      - name: Esperar eliminación Stack 3
+        run: |
+          aws cloudformation wait stack-delete-complete \
+            --stack-name ALB-ASG-Paula-Darwin
+          echo "Stack 3 eliminado correctamente"
+
