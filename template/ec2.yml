@@ -11,10 +11,6 @@ Parameters:
     Default: t2.micro
     Description: "Tipo de instancia EC2"
 
-  KeyName:
-    Type: AWS::EC2::KeyPair::KeyName
-    Description: "Nombre del Key Pair para acceso SSH"
-
 Resources:
 
   # Instancia EC2 con Apache instalado via UserData
@@ -23,7 +19,6 @@ Resources:
     Properties:
       InstanceType: !Ref InstanceType
       ImageId: "{{resolve:ssm:/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2}}"
-      KeyName: !Ref KeyName
       SecurityGroupIds:
         - !Ref EC2SecurityGroupId
       Tags:
@@ -44,7 +39,7 @@ Resources:
             http://169.254.169.254/latest/meta-data/instance-id)
           PUBLIC_IP=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" \
             http://169.254.169.254/latest/meta-data/public-ipv4)
-          cat > /var/www/html/index.html << EOF
+          cat > /var/www/html/index.html << HTMLEOF
           <!DOCTYPE html>
           <html lang="es">
           <head>
@@ -68,7 +63,7 @@ Resources:
             </div>
           </body>
           </html>
-          EOF
+          HTMLEOF
 
   # Elastic IP para la instancia EC2
   ElasticIP:
