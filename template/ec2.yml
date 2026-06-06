@@ -4,7 +4,7 @@ Description: "Stack 2 - EC2 Estatica con Elastic IP - Paula-Darwin"
 Parameters:
   InstanceType:
     Type: String
-    Default: t2.micro
+    Default: t3.micro
     Description: "Tipo de instancia EC2"
 
 Resources:
