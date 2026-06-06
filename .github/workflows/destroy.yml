@@ -1,0 +1,47 @@
+name: Destroy Infrastructure
+
+on:
+  workflow_dispatch:
+
+jobs:
+  Destroy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repositorio
+        uses: actions/checkout@v3
+
+      - name: Configurar credenciales AWS
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      # ─────────────────────────────────────────────
+      # STACK 2 - EC2 ESTÁTICA (primero en destruir)
+      # ─────────────────────────────────────────────
+      - name: Eliminar Stack 2 - EC2 Estática
+        run: |
+          aws cloudformation delete-stack \
+            --stack-name EC2-Paula-Darwin
+
+      - name: Esperar eliminación Stack 2 - EC2 Estática
+        run: |
+          aws cloudformation wait stack-delete-complete \
+            --stack-name EC2-Paula-Darwin
+          echo "Stack 2 eliminado correctamente"
+
+      # ─────────────────────────────────────────────
+      # STACK 1 - SECURITY GROUPS (último en destruir)
+      # ─────────────────────────────────────────────
+      - name: Eliminar Stack 1 - Security Groups
+        run: |
+          aws cloudformation delete-stack \
+            --stack-name SecurityGroups-Paula-Darwin
+
+      - name: Esperar eliminación Stack 1 - Security Groups
+        run: |
+          aws cloudformation wait stack-delete-complete \
+            --stack-name SecurityGroups-Paula-Darwin
+          echo "Stack 1 eliminado correctamente"
