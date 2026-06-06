@@ -85,3 +85,21 @@ jobs:
             --stack-name ALB-ASG-Paula-Darwin \
             --query "Stacks[0].Outputs" \
             --output table
+
+      # ─────────────────────────────────────────────
+      # STACK 4 - AUTOMATIZACIÓN Y ESCALABILIDAD
+      # ─────────────────────────────────────────────
+      - name: Desplegar Stack 4 - Automatización y Escalabilidad Programada
+        run: |
+          aws cloudformation deploy \
+            --template-file template/automation.yml \
+            --stack-name Automation-Paula-Darwin \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --no-fail-on-empty-changeset
+
+      - name: Verificar Stack 4 - Automatización
+        run: |
+          aws cloudformation describe-stacks \
+            --stack-name Automation-Paula-Darwin \
+            --query "Stacks[0].Outputs" \
+            --output table
