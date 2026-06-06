@@ -4,7 +4,7 @@ Description: "Stack 4 - Automatizacion y Escalabilidad Programada - Paula-Darwin
 Parameters:
   InstanceType:
     Type: String
-    Default: t2.micro
+    Default: t3.micro
     Description: "Tipo de instancia para Launch Template v2"
 
   KeyName:
