@@ -67,3 +67,21 @@ jobs:
             --stack-name EC2-Paula-Darwin \
             --query "Stacks[0].Outputs" \
             --output table
+
+      # ─────────────────────────────────────────────
+      # STACK 3 - ALB, ASG Y WARM POOL
+      # ─────────────────────────────────────────────
+      - name: Desplegar Stack 3 - ALB, ASG y Warm Pool
+        run: |
+          aws cloudformation deploy \
+            --template-file template/alb-asg.yml \
+            --stack-name ALB-ASG-Paula-Darwin \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --no-fail-on-empty-changeset
+
+      - name: Verificar Stack 3 - ALB, ASG y Warm Pool
+        run: |
+          aws cloudformation describe-stacks \
+            --stack-name ALB-ASG-Paula-Darwin \
+            --query "Stacks[0].Outputs" \
+            --output table
