@@ -1,16 +1,16 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Stack 4 - Automatizacion y Escalabilidad Programada - Paula & Darwin"
+Description: "Stack 4 - Automatizacion y Escalabilidad Programada - Paula-Darwin"
 
 Parameters:
   InstanceType:
     Type: String
     Default: t3.micro
-    Description: "Tipo de instancia para la Version 2 del Launch Template"
+    Description: "Tipo de instancia para Launch Template v2"
 
 Resources:
 
   # ─────────────────────────────────────────────────────────────────────────
-  # 1. ROLES DE ACCESO E IAM PARA LA AUTOMATIZACIÓN DE LA LT V2
+  # LAMBDA: Crear nueva version del Launch Template
   # ─────────────────────────────────────────────────────────────────────────
   LTVersionRole:
     Type: AWS::IAM::Role
@@ -26,7 +26,7 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
       Policies:
-        - PolicyName: ManageLaunchTemplatePolicy
+        - PolicyName: ManageLaunchTemplate
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -39,9 +39,6 @@ Resources:
                   - autoscaling:DescribeAutoScalingGroups
                 Resource: "*"
 
-  # ─────────────────────────────────────────────────────────────────────────
-  # 2. FUNCIÓN LAMBDA PARA LA CREACIÓN E INTEGRACIÓN DE LA NUEVA VERSIÓN
-  # ─────────────────────────────────────────────────────────────────────────
   LTVersionFunction:
     Type: AWS::Lambda::Function
     Properties:
@@ -53,12 +50,14 @@ Resources:
       Code:
         ZipFile: |
           import boto3
-          import cfnresponse
+          import cfncall
+          import cfncall as cfnresponse
           import base64
 
           def handler(event, context):
               try:
                   if event['RequestType'] == 'Delete':
+                      import cfncall as cfnresponse
                       cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
                       return
 
@@ -136,15 +135,14 @@ Resources:
                       }
                   )
 
+                  import cfncall as cfnresponse
                   cfnresponse.send(event, context, cfnresponse.SUCCESS, {
                       'VersionNumber': version_number
                   })
               except Exception as e:
+                  import cfncall as cfnresponse
                   cfnresponse.send(event, context, cfnresponse.FAILED, {'Error': str(e)})
 
-  # ─────────────────────────────────────────────────────────────────────────
-  # 3. RECURSO PERSONALIZADO (EJECUTA LA LAMBDA DURANTE EL DESPLIEGUE)
-  # ─────────────────────────────────────────────────────────────────────────
   LaunchTemplateV2:
     Type: AWS::CloudFormation::CustomResource
     Properties:
@@ -155,7 +153,7 @@ Resources:
       ASGName: !ImportValue "ASG-Paula-Darwin-Name"
 
   # ─────────────────────────────────────────────────────────────────────────
-  # 4. ACCIONES PROGRAMADAS: INCREMENTO DE CAPACIDAD (SCALE-UP)
+  # ACCIONES PROGRAMADAS - INCREMENTO
   # ─────────────────────────────────────────────────────────────────────────
   ScaleUpMorning:
     Type: AWS::AutoScaling::ScheduledAction
@@ -176,7 +174,7 @@ Resources:
       Recurrence: "0 17 * * *"   # 12:00 PM hora Colombia (UTC-5)
 
   # ─────────────────────────────────────────────────────────────────────────
-  # 5. ACCIONES PROGRAMADAS: REDUCCIÓN DE CAPACIDAD (SCALE-DOWN)
+  # ACCIONES PROGRAMADAS - REDUCCIÓN
   # ─────────────────────────────────────────────────────────────────────────
   ScaleDownEvening:
     Type: AWS::AutoScaling::ScheduledAction
@@ -197,7 +195,7 @@ Resources:
       Recurrence: "0 3 * * *"    # 10:00 PM hora Colombia (UTC-5)
 
 # ─────────────────────────────────────────────────────────────────────────
-# 6. ENTRADAS Y SALIDAS EXPORTADAS (OUTPUTS)
+# OUTPUTS
 # ─────────────────────────────────────────────────────────────────────────
 Outputs:
   LaunchTemplateV2Version:
