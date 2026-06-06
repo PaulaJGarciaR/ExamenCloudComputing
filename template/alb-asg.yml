@@ -1,0 +1,268 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Stack 3 - ALB, ASG y Warm Pool - Paula-Darwin"
+
+Parameters:
+  InstanceType:
+    Type: String
+    Default: t2.micro
+    Description: "Tipo de instancia para el Launch Template"
+
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: "Nombre del Key Pair para acceso SSH"
+
+# Consulta dinamica de la VPC por defecto y sus subredes
+Mappings: {}
+
+Resources:
+
+  # ─────────────────────────────────────────────
+  # LOOKUP: VPC por defecto y subredes
+  # ─────────────────────────────────────────────
+  DefaultVPCInfo:
+    Type: AWS::CloudFormation::CustomResource
+    Properties:
+      ServiceToken: !GetAtt LookupVPCFunction.Arn
+
+  LookupVPCRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: "LookupVPCRole-Paula-Darwin"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: DescribeVPC
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ec2:DescribeVpcs
+                  - ec2:DescribeSubnets
+                Resource: "*"
+
+  LookupVPCFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: "LookupDefaultVPC-Paula-Darwin"
+      Runtime: python3.12
+      Handler: index.handler
+      Role: !GetAtt LookupVPCRole.Arn
+      Timeout: 30
+      Code:
+        ZipFile: |
+          import boto3
+          import cfnresponse
+
+          def handler(event, context):
+            try:
+              if event['RequestType'] == 'Delete':
+                cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+                return
+
+              ec2 = boto3.client('ec2')
+
+              vpcs = ec2.describe_vpcs(Filters=[{'Name': 'isDefault', 'Values': ['true']}])
+              vpc_id = vpcs['Vpcs'][0]['VpcId']
+
+              subnets = ec2.describe_subnets(Filters=[
+                {'Name': 'vpc-id', 'Values': [vpc_id]},
+                {'Name': 'defaultForAz', 'Values': ['true']}
+              ])
+
+              subnet_ids = [s['SubnetId'] for s in subnets['Subnets']]
+
+              cfnresponse.send(event, context, cfnresponse.SUCCESS, {
+                'VpcId': vpc_id,
+                'Subnet1': subnet_ids[0],
+                'Subnet2': subnet_ids[1],
+                'SubnetList': ','.join(subnet_ids[:2])
+              })
+            except Exception as e:
+              cfnresponse.send(event, context, cfnresponse.FAILED, {'Error': str(e)})
+
+  # ─────────────────────────────────────────────
+  # LAUNCH TEMPLATE v1
+  # ─────────────────────────────────────────────
+  LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: "LT-Paula-Darwin"
+      LaunchTemplateData:
+        InstanceType: !Ref InstanceType
+        ImageId: "{{resolve:ssm:/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2}}"
+        KeyName: !Ref KeyName
+        SecurityGroupIds:
+          - !ImportValue "SG-EC2-Paula-Darwin-Id"
+        UserData:
+          Fn::Base64: |
+            #!/bin/bash
+            yum update -y
+            yum install -y httpd
+            systemctl start httpd
+            systemctl enable httpd
+            TOKEN=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" \
+              -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+            INSTANCE_ID=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" \
+              http://169.254.169.254/latest/meta-data/instance-id)
+            AZ=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" \
+              http://169.254.169.254/latest/meta-data/placement/availability-zone)
+            cat > /var/www/html/index.html << EOF
+            <!DOCTYPE html>
+            <html lang="es">
+            <head>
+              <meta charset="UTF-8">
+              <title>Cloud Computing - Paula & Darwin</title>
+              <style>
+                body { font-family: Arial, sans-serif; text-align: center; margin-top: 80px; background: #f0f4f8; }
+                h1 { color: #2c3e50; }
+                .card { background: white; padding: 30px; border-radius: 10px;
+                        display: inline-block; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+                .version { background: #27ae60; color: white; padding: 6px 16px;
+                           border-radius: 20px; font-weight: bold; }
+              </style>
+            </head>
+            <body>
+              <div class="card">
+                <h1>&#x2601; CloudComputing Electiva S.A.</h1>
+                <p><span class="version">Launch Template v1</span></p>
+                <p>Stack 3 - ALB + ASG + Warm Pool</p>
+                <p>Instancia: $INSTANCE_ID</p>
+                <p>AZ: $AZ</p>
+                <p>Paula Johana Garcia Rodriguez &amp; Darwin Andrey Gomez</p>
+              </div>
+            </body>
+            </html>
+            EOF
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: "ASG-Instance-Paula-Darwin"
+
+  # ─────────────────────────────────────────────
+  # TARGET GROUP
+  # ─────────────────────────────────────────────
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: "TG-Paula-Darwin"
+      Protocol: HTTP
+      Port: 80
+      VpcId: !GetAtt DefaultVPCInfo.VpcId
+      TargetType: instance
+      HealthCheckProtocol: HTTP
+      HealthCheckPath: /
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
+      Tags:
+        - Key: Name
+          Value: "TG-Paula-Darwin"
+
+  # ─────────────────────────────────────────────
+  # APPLICATION LOAD BALANCER
+  # ─────────────────────────────────────────────
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: "ALB-Paula-Darwin"
+      Type: application
+      Scheme: internet-facing
+      SecurityGroups:
+        - !ImportValue "SG-ALB-Paula-Darwin-Id"
+      Subnets:
+        - !GetAtt DefaultVPCInfo.Subnet1
+        - !GetAtt DefaultVPCInfo.Subnet2
+      Tags:
+        - Key: Name
+          Value: "ALB-Paula-Darwin"
+
+  ALBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Protocol: HTTP
+      Port: 80
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+
+  # ─────────────────────────────────────────────
+  # AUTO SCALING GROUP
+  # ─────────────────────────────────────────────
+  AutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: "ASG-Paula-Darwin"
+      MinSize: "1"
+      MaxSize: "4"
+      DesiredCapacity: "2"
+      LaunchTemplate:
+        LaunchTemplateId: !Ref LaunchTemplate
+        Version: !GetAtt LaunchTemplate.LatestVersionNumber
+      VPCZoneIdentifier:
+        - !GetAtt DefaultVPCInfo.Subnet1
+        - !GetAtt DefaultVPCInfo.Subnet2
+      TargetGroupARNs:
+        - !Ref TargetGroup
+      HealthCheckType: ELB
+      HealthCheckGracePeriod: 120
+      Tags:
+        - Key: Name
+          Value: "ASG-Paula-Darwin"
+          PropagateAtLaunch: true
+
+  # ─────────────────────────────────────────────
+  # WARM POOL
+  # ─────────────────────────────────────────────
+  WarmPool:
+    Type: AWS::AutoScaling::WarmPool
+    Properties:
+      AutoScalingGroupName: !Ref AutoScalingGroup
+      MinSize: 1
+      MaxGroupPreparedCapacity: 2
+      PoolState: Stopped
+
+Outputs:
+  ALBDNSName:
+    Description: "DNS publico del Application Load Balancer"
+    Value: !GetAtt ApplicationLoadBalancer.DNSName
+    Export:
+      Name: "ALB-Paula-Darwin-DNS"
+
+  ALBArn:
+    Description: "ARN del Application Load Balancer"
+    Value: !Ref ApplicationLoadBalancer
+    Export:
+      Name: "ALB-Paula-Darwin-Arn"
+
+  TargetGroupArn:
+    Description: "ARN del Target Group"
+    Value: !Ref TargetGroup
+    Export:
+      Name: "TG-Paula-Darwin-Arn"
+
+  AutoScalingGroupName:
+    Description: "Nombre del Auto Scaling Group"
+    Value: !Ref AutoScalingGroup
+    Export:
+      Name: "ASG-Paula-Darwin-Name"
+
+  LaunchTemplateId:
+    Description: "ID del Launch Template"
+    Value: !Ref LaunchTemplate
+    Export:
+      Name: "LT-Paula-Darwin-Id"
+
+  WebsiteURL:
+    Description: "URL publica del sitio web a traves del ALB"
+    Value: !Sub "http://${ApplicationLoadBalancer.DNSName}"

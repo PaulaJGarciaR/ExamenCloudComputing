@@ -1,0 +1,105 @@
+name: Deploy Infrastructure
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  Deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repositorio
+        uses: actions/checkout@v3
+
+      - name: Configurar credenciales AWS
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      # ─────────────────────────────────────────────
+      # STACK 1 - SECURITY GROUPS
+      # ─────────────────────────────────────────────
+      - name: Desplegar Stack 1 - Security Groups
+        run: |
+          aws cloudformation deploy \
+            --template-file template/security.yml \
+            --stack-name SecurityGroups-Paula-Darwin \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --no-fail-on-empty-changeset
+
+      - name: Verificar Stack 1 - Security Groups
+        run: |
+          aws cloudformation describe-stacks \
+            --stack-name SecurityGroups-Paula-Darwin \
+            --query "Stacks[0].StackStatus" \
+            --output text
+
+      # ─────────────────────────────────────────────
+      # STACK 2 - EC2 ESTÁTICA
+      # ─────────────────────────────────────────────
+      - name: Obtener outputs del Stack 1 (Security Groups)
+        id: security-outputs
+        run: |
+          SG_EC2=$(aws cloudformation describe-stacks \
+            --stack-name SecurityGroups-Paula-Darwin \
+            --query "Stacks[0].Outputs[?OutputKey=='EC2SecurityGroupId'].OutputValue" \
+            --output text)
+          echo "EC2_SG_ID=$SG_EC2" >> $GITHUB_ENV
+
+      - name: Desplegar Stack 2 - EC2 Estática
+        run: |
+          aws cloudformation deploy \
+            --template-file template/ec2.yml \
+            --stack-name EC2-Paula-Darwin \
+            --parameter-overrides \
+              EC2SecurityGroupId=${{ env.EC2_SG_ID }} \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --no-fail-on-empty-changeset
+
+      - name: Verificar Stack 2 - EC2 Estática
+        run: |
+          aws cloudformation describe-stacks \
+            --stack-name EC2-Paula-Darwin \
+            --query "Stacks[0].Outputs" \
+            --output table
+
+      # ─────────────────────────────────────────────
+      # STACK 3 - ALB, ASG Y WARM POOL
+      # ─────────────────────────────────────────────
+      - name: Desplegar Stack 3 - ALB, ASG y Warm Pool
+        run: |
+          aws cloudformation deploy \
+            --template-file template/alb-asg.yml \
+            --stack-name ALB-ASG-Paula-Darwin \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --no-fail-on-empty-changeset
+
+      - name: Verificar Stack 3 - ALB, ASG y Warm Pool
+        run: |
+          aws cloudformation describe-stacks \
+            --stack-name ALB-ASG-Paula-Darwin \
+            --query "Stacks[0].Outputs" \
+            --output table
+
+      # ─────────────────────────────────────────────
+      # STACK 4 - AUTOMATIZACIÓN Y ESCALABILIDAD
+      # ─────────────────────────────────────────────
+      - name: Desplegar Stack 4 - Automatización y Escalabilidad Programada
+        run: |
+          aws cloudformation deploy \
+            --template-file template/automation.yml \
+            --stack-name Automation-Paula-Darwin \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --no-fail-on-empty-changeset
+
+      - name: Verificar Stack 4 - Automatización
+        run: |
+          aws cloudformation describe-stacks \
+            --stack-name Automation-Paula-Darwin \
+            --query "Stacks[0].Outputs" \
+            --output table
