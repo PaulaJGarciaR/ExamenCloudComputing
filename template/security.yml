@@ -57,7 +57,7 @@ Resources:
 Outputs:
   EC2SecurityGroupId:
     Description: "ID del Security Group de la instancia EC2"
-    Value: !Ref EC2SecurityGroup
+    Value: !GetAtt EC2SecurityGroup.GroupId
     Export:
       Name: "SG-EC2-Paula-Darwin-Id"
 
