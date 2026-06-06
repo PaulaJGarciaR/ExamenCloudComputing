@@ -63,6 +63,6 @@ Outputs:
 
   ALBSecurityGroupId:
     Description: "ID del Security Group del ALB"
-    Value: !Ref ALBSecurityGroup
+    Value: !GetAtt ALBSecurityGroup.GroupId  
     Export:
       Name: "SG-ALB-Paula-Darwin-Id"
