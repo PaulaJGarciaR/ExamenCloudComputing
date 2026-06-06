@@ -27,7 +27,7 @@ jobs:
       - name: Desplegar Stack 1 - Security Groups
         run: |
           aws cloudformation deploy \
-            --template-file template/security.yml \
+            --template-file cloudformation/security.yml \
             --stack-name SecurityGroups-Paula-Darwin \
             --capabilities CAPABILITY_NAMED_IAM \
             --no-fail-on-empty-changeset
@@ -42,22 +42,17 @@ jobs:
       # ─────────────────────────────────────────────
       # STACK 2 - EC2 ESTÁTICA
       # ─────────────────────────────────────────────
-      - name: Obtener outputs del Stack 1 (Security Groups)
-        id: security-outputs
+      - name: Desplegar Stack 2 - EC2 Estática
         run: |
           SG_EC2=$(aws cloudformation describe-stacks \
             --stack-name SecurityGroups-Paula-Darwin \
             --query "Stacks[0].Outputs[?OutputKey=='EC2SecurityGroupId'].OutputValue" \
             --output text)
-          echo "EC2_SG_ID=$SG_EC2" >> $GITHUB_ENV
-
-      - name: Desplegar Stack 2 - EC2 Estática
-        run: |
           aws cloudformation deploy \
-            --template-file template/ec2.yml \
+            --template-file cloudformation/ec2.yml \
             --stack-name EC2-Paula-Darwin \
             --parameter-overrides \
-              EC2SecurityGroupId=${{ env.EC2_SG_ID }} \
+              EC2SecurityGroupId=$SG_EC2 \
             --capabilities CAPABILITY_NAMED_IAM \
             --no-fail-on-empty-changeset
 
@@ -74,7 +69,7 @@ jobs:
       - name: Desplegar Stack 3 - ALB, ASG y Warm Pool
         run: |
           aws cloudformation deploy \
-            --template-file template/alb-asg.yml \
+            --template-file cloudformation/alb-asg.yml \
             --stack-name ALB-ASG-Paula-Darwin \
             --capabilities CAPABILITY_NAMED_IAM \
             --no-fail-on-empty-changeset
@@ -92,7 +87,7 @@ jobs:
       - name: Desplegar Stack 4 - Automatización y Escalabilidad Programada
         run: |
           aws cloudformation deploy \
-            --template-file template/automation.yml \
+            --template-file cloudformation/automation.yml \
             --stack-name Automation-Paula-Darwin \
             --capabilities CAPABILITY_NAMED_IAM \
             --no-fail-on-empty-changeset
