@@ -1,0 +1,61 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Stack 1 - Security Groups - Paula-Darwin"
+
+Resources:
+
+  # Security Group para la instancia EC2 pública
+  EC2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: "SG-EC2-Paula-Darwin"
+      GroupDescription: "Security Group para instancia EC2 publica"
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: "HTTP trafico web"
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+          Description: "Permitir todo el trafico saliente"
+      Tags:
+        - Key: Name
+          Value: "SG-EC2-Paula-Darwin"
+        - Key: Stack
+          Value: "SecurityGroups-Paula-Darwin"
+
+  # Security Group para el Application Load Balancer
+  ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: "SG-ALB-Paula-Darwin"
+      GroupDescription: "Security Group para el Application Load Balancer"
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: "HTTP trafico publico hacia el ALB"
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+          Description: "Permitir todo el trafico saliente"
+      Tags:
+        - Key: Name
+          Value: "SG-ALB-Paula-Darwin"
+        - Key: Stack
+          Value: "SecurityGroups-Paula-Darwin"
+
+Outputs:
+  EC2SecurityGroupId:
+    Description: "ID del Security Group de la instancia EC2"
+    Value: !Ref EC2SecurityGroup
+    Export:
+      Name: "SG-EC2-Paula-Darwin-Id"
+
+  ALBSecurityGroupId:
+    Description: "ID del Security Group del ALB"
+    Value: !Ref ALBSecurityGroup
+    Export:
+      Name: "SG-ALB-Paula-Darwin-Id"
