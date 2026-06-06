@@ -1,7 +1,7 @@
 name: Destroy Infrastructure
 
 on:
-  workflow_dispatch:
+  [cite_start]workflow_dispatch: # Permite la ejecución manual controlada desde la pestaña Actions [cite: 27, 28]
 
 jobs:
   Destroy:
@@ -18,58 +18,46 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      # ─────────────────────────────────────────────
-      # STACK 4 - AUTOMATIZACIÓN (primero)
-      # ─────────────────────────────────────────────
-      - name: Eliminar Stack 4 - Automatización
+      # ─────────────────────────────────────────────────────────────────
+      # STACK 4 - AUTOMATIZACIÓN Y ESCALABILIDAD (Primero en destruir)
+      # ─────────────────────────────────────────────────────────────────
+      - name: Destruir Stack 4 - Automatización y Escalabilidad Programada
         run: |
-          aws cloudformation delete-stack \
-            --stack-name Automation-Paula-Darwin
+          echo "Iniciando eliminación del Stack 4..."
+          aws cloudformation delete-stack --stack-name Automation-Paula-Darwin
+          echo "Esperando a que se complete la eliminación de Automation..."
+          aws cloudformation wait stack-delete-complete --stack-name Automation-Paula-Darwin
+          echo "Stack 4 eliminado correctamente."
 
-      - name: Esperar eliminación Stack 4
+      # ─────────────────────────────────────────────────────────────────
+      # STACK 3 - ALB, ASG Y WARM POOL (Segundo en destruir)
+      # ─────────────────────────────────────────────────────────────────
+      - name: Destruir Stack 3 - ALB, ASG y Warm Pool
         run: |
-          aws cloudformation wait stack-delete-complete \
-            --stack-name Automation-Paula-Darwin
-          echo "Stack 4 eliminado correctamente"
+          echo "Iniciando eliminación del Stack 3..."
+          aws cloudformation delete-stack --stack-name ALB-ASG-Paula-Darwin
+          echo "Esperando a que se complete la eliminación de ALB-ASG..."
+          aws cloudformation wait stack-delete-complete --stack-name ALB-ASG-Paula-Darwin
+          echo "Stack 3 eliminado correctamente."
 
-      # ─────────────────────────────────────────────
-      # STACK 3 - ALB, ASG Y WARM POOL
-      # ─────────────────────────────────────────────
-      - name: Eliminar Stack 3 - ALB, ASG y Warm Pool
+      # ─────────────────────────────────────────────────────────────────
+      # STACK 2 - EC2 ESTÁTICA (Tercero en destruir)
+      # ─────────────────────────────────────────────────────────────────
+      - name: Destruir Stack 2 - EC2 Estática
         run: |
-          aws cloudformation delete-stack \
-            --stack-name ALB-ASG-Paula-Darwin
+          echo "Iniciando eliminación del Stack 2..."
+          aws cloudformation delete-stack --stack-name EC2-Paula-Darwin
+          echo "Esperando a que se complete la eliminación de EC2 Estática..."
+          aws cloudformation wait stack-delete-complete --stack-name EC2-Paula-Darwin
+          echo "Stack 2 eliminado correctamente."
 
-      - name: Esperar eliminación Stack 3
+      # ─────────────────────────────────────────────────────────────────
+      # STACK 1 - SECURITY GROUPS (Último en destruir)
+      # ─────────────────────────────────────────────────────────────────
+      - name: Destruir Stack 1 - Security Groups
         run: |
-          aws cloudformation wait stack-delete-complete \
-            --stack-name ALB-ASG-Paula-Darwin
-          echo "Stack 3 eliminado correctamente"
-
-      # ─────────────────────────────────────────────
-      # STACK 2 - EC2 ESTÁTICA
-      # ─────────────────────────────────────────────
-      - name: Eliminar Stack 2 - EC2 Estática
-        run: |
-          aws cloudformation delete-stack \
-            --stack-name EC2-Paula-Darwin
-
-      - name: Esperar eliminación Stack 2
-        run: |
-          aws cloudformation wait stack-delete-complete \
-            --stack-name EC2-Paula-Darwin
-          echo "Stack 2 eliminado correctamente"
-
-      # ─────────────────────────────────────────────
-      # STACK 1 - SECURITY GROUPS (último)
-      # ─────────────────────────────────────────────
-      - name: Eliminar Stack 1 - Security Groups
-        run: |
-          aws cloudformation delete-stack \
-            --stack-name SecurityGroups-Paula-Darwin
-
-      - name: Esperar eliminación Stack 1
-        run: |
-          aws cloudformation wait stack-delete-complete \
-            --stack-name SecurityGroups-Paula-Darwin
-          echo "Stack 1 eliminado correctamente"
+          echo "Iniciando eliminación del Stack 1..."
+          aws cloudformation delete-stack --stack-name SecurityGroups-Paula-Darwin
+          echo "Esperando a que se complete la eliminación de Security Groups..."
+          aws cloudformation wait stack-delete-complete --stack-name SecurityGroups-Paula-Darwin
+          echo "¡Infraestructura de Paula & Darwin completamente destruida con éxito!"
