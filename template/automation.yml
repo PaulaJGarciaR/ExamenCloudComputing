@@ -1,17 +1,17 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Stack 4 - Automatizacion y Escalabilidad Programada - Paula-Darwin"
+Description: "Stack 4 - Automatizacion y Escalabilidad Programada - Paula & Darwin"
 
 Parameters:
   InstanceType:
     Type: String
     Default: t3.micro
-    Description: "Tipo de instancia para Launch Template v2"
+    Description: "Tipo de instancia para la Version 2 del Launch Template"
 
 Resources:
 
-  # ─────────────────────────────────────────────
-  # LAMBDA: Crear nueva version del Launch Template
-  # ─────────────────────────────────────────────
+  # ─────────────────────────────────────────────────────────────────────────
+  # 1. ROLES DE ACCESO E IAM PARA LA AUTOMATIZACIÓN DE LA LT V2
+  # ─────────────────────────────────────────────────────────────────────────
   LTVersionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -26,7 +26,7 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
       Policies:
-        - PolicyName: ManageLaunchTemplate
+        - PolicyName: ManageLaunchTemplatePolicy
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -39,6 +39,9 @@ Resources:
                   - autoscaling:DescribeAutoScalingGroups
                 Resource: "*"
 
+  # ─────────────────────────────────────────────────────────────────────────
+  # 2. FUNCIÓN LAMBDA PARA LA CREACIÓN E INTEGRACIÓN DE LA NUEVA VERSIÓN
+  # ─────────────────────────────────────────────────────────────────────────
   LTVersionFunction:
     Type: AWS::Lambda::Function
     Properties:
@@ -51,94 +54,97 @@ Resources:
         ZipFile: |
           import boto3
           import cfnresponse
+          import base64
 
           def handler(event, context):
-            try:
-              if event['RequestType'] == 'Delete':
-                cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
-                return
+              try:
+                  if event['RequestType'] == 'Delete':
+                      cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+                      return
 
-              ec2 = boto3.client('ec2')
-              asg_client = boto3.client('autoscaling')
+                  ec2 = boto3.client('ec2')
+                  asg_client = boto3.client('autoscaling')
 
-              lt_id = event['ResourceProperties']['LaunchTemplateId']
-              instance_type = event['ResourceProperties']['InstanceType']
-              sg_id = event['ResourceProperties']['SecurityGroupId']
-              asg_name = event['ResourceProperties']['ASGName']
+                  lt_id = event['ResourceProperties']['LaunchTemplateId']
+                  instance_type = event['ResourceProperties']['InstanceType']
+                  sg_id = event['ResourceProperties']['SecurityGroupId']
+                  asg_name = event['ResourceProperties']['ASGName']
 
-              userdata = """#!/bin/bash
-yum update -y
-yum install -y httpd
-systemctl start httpd
-systemctl enable httpd
-TOKEN=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
-INSTANCE_ID=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/instance-id)
-AZ=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/placement/availability-zone)
-cat > /var/www/html/index.html << EOF
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <title>Cloud Computing - Paula & Darwin v2</title>
-  <style>
-    body { font-family: Arial, sans-serif; text-align: center; margin-top: 80px; background: #eaf4fb; }
-    h1 { color: #1a5276; }
-    .card { background: white; padding: 30px; border-radius: 10px; display: inline-block; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-    .version { background: #2980b9; color: white; padding: 6px 16px; border-radius: 20px; font-weight: bold; }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <h1>&#x2601; CloudComputing Electiva S.A.</h1>
-    <p><span class="version">Launch Template v2 - Actualizado</span></p>
-    <p>Stack 4 - Automatizacion y Escalabilidad Programada</p>
-    <p>Instancia: $INSTANCE_ID</p>
-    <p>AZ: $AZ</p>
-    <p>Paula Johana Garcia Rodriguez &amp; Darwin Andrey Gomez</p>
-  </div>
-</body>
-</html>
-EOF"""
+                  userdata = """#!/bin/bash
+          yum update -y
+          yum install -y httpd
+          systemctl start httpd
+          systemctl enable httpd
+          TOKEN=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+          INSTANCE_ID=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/instance-id)
+          AZ=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/placement/availability-zone)
+          cat > /var/www/html/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html lang="es">
+          <head>
+            <meta charset="UTF-8">
+            <title>Cloud Computing - Paula & Darwin v2</title>
+            <style>
+              body { font-family: Arial, sans-serif; text-align: center; margin-top: 80px; background: #eaf4fb; }
+              h1 { color: #1a5276; }
+              .card { background: white; padding: 30px; border-radius: 10px; display: inline-block; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+              .version { background: #2980b9; color: white; padding: 6px 16px; border-radius: 20px; font-weight: bold; }
+            </style>
+          </head>
+          <body>
+            <div class="card">
+              <h1>&#x2601; CloudComputing Electiva S.A.</h1>
+              <p><span class="version">Launch Template v2 - Actualizado</span></p>
+              <p>Stack 4 - Automatizacion y Escalabilidad Programada</p>
+              <p>Instancia: $INSTANCE_ID</p>
+              <p>AZ: $AZ</p>
+              <p>Paula Johana Garcia Rodriguez &amp; Darwin Andrey Gomez</p>
+            </div>
+          </body>
+          </html>
+          EOF"""
 
-              import base64
-              encoded_userdata = base64.b64encode(userdata.encode()).decode()
+                  encoded_userdata = base64.b64encode(userdata.encode()).decode()
 
-              response = ec2.create_launch_template_version(
-                LaunchTemplateId=lt_id,
-                LaunchTemplateData={
-                  'InstanceType': instance_type,
-                  'ImageId': 'resolve:ssm:/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2',
-                  'SecurityGroupIds': [sg_id],
-                  'UserData': encoded_userdata,
-                  'TagSpecifications': [{
-                    'ResourceType': 'instance',
-                    'Tags': [{'Key': 'Name', 'Value': 'ASG-Instance-v2-Paula-Darwin'}]
-                  }]
-                },
-                VersionDescription='v2 - Stack 4 Automatizacion'
-              )
+                  response = ec2.create_launch_template_version(
+                      LaunchTemplateId=lt_id,
+                      LaunchTemplateData={
+                          'InstanceType': instance_type,
+                          'ImageId': 'resolve:ssm:/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2',
+                          'SecurityGroupIds': [sg_id],
+                          'UserData': encoded_userdata,
+                          'TagSpecifications': [{
+                              'ResourceType': 'instance',
+                              'Tags': [{'Key': 'Name', 'Value': 'ASG-Instance-v2-Paula-Darwin'}]
+                          }]
+                      },
+                      VersionDescription='v2 - Stack 4 Automatizacion'
+                  )
 
-              version_number = str(response['LaunchTemplateVersion']['VersionNumber'])
+                  version_number = str(response['LaunchTemplateVersion']['VersionNumber'])
 
-              ec2.modify_launch_template(
-                LaunchTemplateId=lt_id,
-                DefaultVersion=version_number
-              )
+                  ec2.modify_launch_template(
+                      LaunchTemplateId=lt_id,
+                      DefaultVersion=version_number
+                  )
 
-              asg_client.update_auto_scaling_group(
-                AutoScalingGroupName=asg_name,
-                LaunchTemplate={
-                  'LaunchTemplateId': lt_id,
-                  'Version': version_number
-                }
-              )
+                  asg_client.update_auto_scaling_group(
+                      AutoScalingGroupName=asg_name,
+                      LaunchTemplate={
+                          'LaunchTemplateId': lt_id,
+                          'Version': version_number
+                      }
+                  )
 
-              cfnresponse.send(event, context, cfnresponse.SUCCESS, {
-                'VersionNumber': version_number
-              })
-            except Exception as e:
-              cfnresponse.send(event, context, cfnresponse.FAILED, {'Error': str(e)})
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {
+                      'VersionNumber': version_number
+                  })
+              except Exception as e:
+                  cfnresponse.send(event, context, cfnresponse.FAILED, {'Error': str(e)})
 
+  # ─────────────────────────────────────────────────────────────────────────
+  # 3. RECURSO PERSONALIZADO (EJECUTA LA LAMBDA DURANTE EL DESPLIEGUE)
+  # ─────────────────────────────────────────────────────────────────────────
   LaunchTemplateV2:
     Type: AWS::CloudFormation::CustomResource
     Properties:
@@ -148,9 +154,9 @@ EOF"""
       SecurityGroupId: !ImportValue "SG-EC2-Paula-Darwin-Id"
       ASGName: !ImportValue "ASG-Paula-Darwin-Name"
 
-  # ─────────────────────────────────────────────
-  # ACCIONES PROGRAMADAS - INCREMENTO
-  # ─────────────────────────────────────────────
+  # ─────────────────────────────────────────────────────────────────────────
+  # 4. ACCIONES PROGRAMADAS: INCREMENTO DE CAPACIDAD (SCALE-UP)
+  # ─────────────────────────────────────────────────────────────────────────
   ScaleUpMorning:
     Type: AWS::AutoScaling::ScheduledAction
     Properties:
@@ -169,9 +175,9 @@ EOF"""
       MaxSize: 4
       Recurrence: "0 17 * * *"   # 12:00 PM hora Colombia (UTC-5)
 
-  # ─────────────────────────────────────────────
-  # ACCIONES PROGRAMADAS - REDUCCIÓN
-  # ─────────────────────────────────────────────
+  # ─────────────────────────────────────────────────────────────────────────
+  # 5. ACCIONES PROGRAMADAS: REDUCCIÓN DE CAPACIDAD (SCALE-DOWN)
+  # ─────────────────────────────────────────────────────────────────────────
   ScaleDownEvening:
     Type: AWS::AutoScaling::ScheduledAction
     Properties:
@@ -190,6 +196,9 @@ EOF"""
       MaxSize: 4
       Recurrence: "0 3 * * *"    # 10:00 PM hora Colombia (UTC-5)
 
+# ─────────────────────────────────────────────────────────────────────────
+# 6. ENTRADAS Y SALIDAS EXPORTADAS (OUTPUTS)
+# ─────────────────────────────────────────────────────────────────────────
 Outputs:
   LaunchTemplateV2Version:
     Description: "Numero de version del Launch Template v2"
