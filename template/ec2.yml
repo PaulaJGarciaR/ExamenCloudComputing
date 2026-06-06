@@ -2,10 +2,6 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: "Stack 2 - EC2 Estatica con Elastic IP - Paula-Darwin"
 
 Parameters:
-  EC2SecurityGroupId:
-    Type: AWS::EC2::SecurityGroup::Id
-    Description: "ID del Security Group de EC2 exportado del Stack 1"
-
   InstanceType:
     Type: String
     Default: t2.micro
@@ -20,7 +16,7 @@ Resources:
       InstanceType: !Ref InstanceType
       ImageId: "{{resolve:ssm:/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2}}"
       SecurityGroupIds:
-        - !Ref EC2SecurityGroupId
+        - !ImportValue "SG-EC2-Paula-Darwin-Id"
       Tags:
         - Key: Name
           Value: "EC2-Paula-Darwin"
