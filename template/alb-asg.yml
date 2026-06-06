@@ -4,7 +4,7 @@ Description: "Stack 3 - ALB, ASG y Warm Pool - Paula-Darwin"
 Parameters:
   InstanceType:
     Type: String
-    Default: t2.micro
+    Default: t3.micro
     Description: "Tipo de instancia para el Launch Template"
 
   KeyName:
